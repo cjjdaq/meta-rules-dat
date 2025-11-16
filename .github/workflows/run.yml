@@ -115,7 +115,9 @@ jobs:
 
       - name: Remove domains end with ".cn" in "temp-geolocation-!cn.txt" and write lists to data directory
         run: |
-          cat temp-cn.txt | grep -v google | grep -v manhua | grep -v ooklaserver | grep -v "acg.rip" | sort --ignore-case -u | perl -ne '/^((?=^.{1,255})[a-zA-Z0-9][-_a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-_a-zA-Z0-9]{0,62})*)/ && print "$1\n"' > ./community/data/cn
+          grep -E '((apple|icloud|itunes|mac|me|appstore|mzstatic|cdn-apple|akadns).*)\.((com\.cn)|cn)$' temp-cn.txt | sort --ignore-case -u > ./community/data/apple-cn
+          #cat temp-cn.txt | grep -v google | grep -v manhua | grep -v ooklaserver | grep -v "acg.rip" | sort --ignore-case -u | perl -ne '/^((?=^.{1,255})[a-zA-Z0-9][-_a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-_a-zA-Z0-9]{0,62})*)/ && print "$1\n"' > ./community/data/cn
+          cat temp-cn.txt | grep -v google | grep -v manhua | grep -v ooklaserver | grep -v "acg.rip"| grep -vE '((apple|icloud|itunes|mac|me|appstore|mzstatic|cdn-apple|akadns).*)\.((com\.cn)|cn)$' | sort --ignore-case -u | perl -ne '/^((?=^.{1,255})[a-zA-Z0-9][-_a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-_a-zA-Z0-9]{0,62})*)/ && print "$1\n"' > ./community/data/cn
           cat temp-cn.txt | sort --ignore-case -u | perl -ne 'print if not /^((?=^.{3,255})[a-zA-Z0-9][-_a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-_a-zA-Z0-9]{0,62})+)/' > direct-tld-list.txt
           cat temp-geolocation-\!cn.txt | sort --ignore-case -u | perl -ne '/^((?=^.{1,255})[a-zA-Z0-9][-_a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-_a-zA-Z0-9]{0,62})*)/ && print "$1\n"' | perl -ne 'print if not /\.cn$/' > ./community/data/geolocation-\!cn
           cat temp-geolocation-\!cn.txt | sort --ignore-case -u | perl -ne 'print if not /^((?=^.{3,255})[a-zA-Z0-9][-_a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-_a-zA-Z0-9]{0,62})+)/' > proxy-tld-list.txt
@@ -221,51 +223,8 @@ jobs:
           geo convert ip -i v2ray -o sing -f geoip-lite.db ./geoip-lite.dat
           geo convert ip -i v2ray -o meta -f geoip-lite.metadb ./geoip-lite.dat
 
-      - name: Convert geo to sing-rule-set
-        env:
-          NO_SKIP: true
-        run: |
-          mkdir -p sing-rule/geo/geosite && mkdir -p sing-rule/geo/geoip
-          cd convert
-          go run ./ geosite -f ../custom/publish/geosite.dat -o ../sing-rule/geo/geosite -t sing-box
-          go run ./ geoip -f ../geoip.dat -o ../sing-rule/geo/geoip -t sing-box
-
-      - name: Convert geo-lite to sing-rule-set
-        env:
-          NO_SKIP: true
-        run: |
-          mkdir -p sing-rule/geo-lite/geosite && mkdir -p sing-rule/geo-lite/geoip
-          cd convert
-          go run ./ geosite -f ../community/geosite-lite.dat -o ../sing-rule/geo-lite/geosite -t sing-box
-          go run ./ geoip -f ../geoip-lite.dat -o ../sing-rule/geo-lite/geoip -t sing-box
-
-      - name: Convert geo to meta-rule-set
-        env:
-          NO_SKIP: true
-        run: |
-          mkdir -p meta-rule/geo/geosite && mkdir -p meta-rule/geo/geoip
-          cd convert
-          go run ./ geosite -f ../custom/publish/geosite.dat -o ../meta-rule/geo/geosite
-          go run ./ geoip -f ../geoip.dat -o ../meta-rule/geo/geoip
-
-      - name: Convert geo-lite to meta-rule-set
-        env:
-          NO_SKIP: true
-        run: |
-          mkdir -p meta-rule/geo-lite/geosite && mkdir -p meta-rule/geo-lite/geoip
-          cd convert
-          go run ./ geosite -f ../community/geosite-lite.dat -o ../meta-rule/geo-lite/geosite
-          go run ./ geoip -f ../geoip-lite.dat -o ../meta-rule/geo-lite/geoip
-
-      - name: Convert asn
-        env:
-          NO_SKIP: true
-        run: |
-          mkdir -p meta-rule/asn && mkdir -p sing-rule/asn
-          cd convert
-          wget https://raw.githubusercontent.com/xishang0128/geoip/release/GeoLite2-ASN.mmdb
-          go run ./ asn -o ../meta-rule/asn
-          go run ./ asn -o ../sing-rule/asn -t sing-box
+ 
+  
 
       # - name: Convert bm7-rule-set to sing-rule-set
       #   env:
@@ -340,30 +299,7 @@ jobs:
           git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
           git push -f -u origin release
 
-      - name: Git push assets to "sing-rule" branch
-        run: |
-            cd sing-rule || exit 1
-            git init
-            git config --local user.name "github-actions[bot]"
-            git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git checkout -b sing
-            git add .
-            git commit -m "Released on ${{ env.BUILDTIME }}"
-            git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-            git push -f -u origin sing
-
-      - name: Git push assets to "meta-rule" branch
-        run: |
-            cd meta-rule || exit 1
-            git init
-            git config --local user.name "github-actions[bot]"
-            git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git checkout -b meta
-            git add .
-            git commit -m "Released on ${{ env.BUILDTIME }}"
-            git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-            git push -f -u origin meta
-
+     
 
       - name: Purge jsdelivr CDN
         run: |
